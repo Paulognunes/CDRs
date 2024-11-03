@@ -153,12 +153,24 @@ def gera_camada_relacionamento(grafo, prob_criacao_arestas, nome_aresta, peso, d
     return grafo
 
 
-def gera_camada_mobilidade(grafo, nos, matriz_OD, porc_transporte, prob_criacao_arestas, nome_aresta, peso):
+def gera_camada_mobilidade(grafo, nos, matriz_OD, porc_transporte, lim_inf, lim_sup, prob_criacao_arestas, nome_aresta,
+                           peso):
     users_transporte_publico = random.sample(nos, int(len(nos) * porc_transporte))
     for key1 in matriz_OD.keys():
         for key2 in matriz_OD[key1].keys():
             elementos_comuns = list(set(users_transporte_publico) & set(matriz_OD[key1][key2]))
-            grafo = cria_arestas(grafo, elementos_comuns, prob_criacao_arestas, nome_aresta, peso)
+            while len(elementos_comuns):
+                tam_grupo = random.randint(lim_inf, lim_sup)
+
+                if len(elementos_comuns) > tam_grupo:
+                    grupo = random.sample(elementos_comuns, tam_grupo)
+                    cria_arestas(grafo, grupo, prob_criacao_arestas, nome_aresta, peso)
+                    remove_elem(elementos_comuns, grupo)
+
+                else:
+                    if len(elementos_comuns) > lim_inf:
+                        cria_arestas(grafo, elementos_comuns, prob_criacao_arestas, nome_aresta, peso)
+                    elementos_comuns.clear()
     return grafo
 
 
@@ -168,11 +180,27 @@ def gera_camada_mobilidade(grafo, nos, matriz_OD, porc_transporte, prob_criacao_
     print("Fim mobilidade")
     return grafo"""
 
-if __name__ == '__main__':
+
+def soma_pesos(grafo):
+    for i, j, k in grafo.edges.data():
+        nx.set_edge_attributes(grafo, {(i, j): {'Total': round(sum(k.values()), 2)}})
+        edge_data = grafo.get_edge_data(i, j)
+    return grafo
+
+
+def main():
+    AMOSTRAGEM = False
+
     # Lendo os objetos Pickles
-    nos = list(load_with_pickle('../Pickles/', 'nos'))
-    users = load_with_pickle('../Pickles/', 'dict_dados')
-    matriz_OD = load_with_pickle('../Pickles/', 'matriz_OD')
+    if AMOSTRAGEM:
+        nos = list(load_with_pickle('../Pickles/Amostragem/', 'amostragem_nos'))
+        users = load_with_pickle('../Pickles/Amostragem/', 'dict_dados')
+        matriz_OD = load_with_pickle('../Pickles/Amostragem/', 'matriz_OD')
+    else:
+        nos = list(load_with_pickle('../Pickles/Dados Completos/', 'nos'))
+        users = load_with_pickle('../Pickles/Dados Completos/', 'dict_dados')
+        matriz_OD = load_with_pickle('../Pickles/Dados Completos/', 'matriz_OD')
+
     porc_tam_familia = {'1': 0.12, '2': 0.22, '3': 0.25, '4': 0.21, '5': 0.11,
                         '6': 0.05, '7': 0.02, '8': 0.01, '9': 0.005, '10': 0.005}
 
@@ -184,29 +212,38 @@ if __name__ == '__main__':
 
     # Camada Família
     grafo = gera_camada_familia(grafo, porc_tam_familia, 'Família', 0.125)
+    print("Camada Família Finalizada!")
 
     # Camada Trabalho
     grafo = gera_camada(grafo, 'classe', 'Adulto', 1, 5, 30, 0.05, 'Trabalho', 0.238)
+    print("Camada Trabalho Finalizada!")
 
     # Camada Escola
     grafo = gera_camada(grafo, 'classe', 'Criança', 0.6, 16, 30, 0.05, 'Escola', 0.12)
-
-    # Camada Transporte
-    # grafo = gera_camada(grafo, 'classe', 'Todos', 0.5, 10, 30, 0.05, 'Transporte', 0.05)
+    print("Camada Escola Finalizada!")
 
     # Camada Religião
-    grafo = gera_camada(grafo, 'classe', 'Todos', 0.4, 10, 100, 0.05, 'Religião', 0.01)
+    grafo = gera_camada(grafo, 'classe', 'Todos', 0.4, 10, 100, 0.01, 'Religião', 0.01)
+    print("Camada Religião Finalizada!")
 
     # Camada Aleatória
-    grafo = gera_camada(grafo, 'classe', 'Todos', 1, 3, 3, 1, 'Aleatória', 0.006)
+    grafo = gera_camada(grafo, 'classe', 'Todos', 1, 2, 2, 1, 'Aleatória', 0.006)
+    print("Camada Aleatória Finalizada!")
 
     # Camada Relacionamentos
-    grafo = gera_camada_relacionamento(grafo, 0.05, 'Relacionamento', 0.08, users)
+    grafo = gera_camada_relacionamento(grafo, 1, 'Relacionamento', 0.08, users)
+    print("Camada Relacionamentos Finalizada!")
 
     # Camada de Mobilidade Urbana (Matriz Origem-Destino)
-    grafo = gera_camada_mobilidade(grafo, nos, matriz_OD, 0.5, 0.05, 'Mobilidade OD', 0.15)
-    
+    grafo = gera_camada_mobilidade(grafo, nos, matriz_OD, 0.5, 10, 30, 0.05, 'Mobilidade OD', 0.04)
+    print("Camada Mobilidade Finalizada!")
+
     # Camada Mobilidade
     # grafo = gera_camada_mobilidade(grafo, 0.01, 'Mobilidade', 0.15, dict_mobil)
 
-    nx.write_graphml(grafo, "cdr_grafo.graphml")
+    grafo = soma_pesos(grafo)
+    nx.write_graphml(grafo, "rede_uberlandia.graphml")
+
+
+if __name__ == '__main__':
+    main()
